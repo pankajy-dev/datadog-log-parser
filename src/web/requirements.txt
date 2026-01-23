@@ -1,0 +1,11 @@
+# Web UI Dependencies for Log Parser Utility
+
+# Flask - Lightweight web framework
+Flask==3.0.0
+
+# Werkzeug - WSGI utility library (comes with Flask but pinned for security)
+Werkzeug==3.0.1
+
+# Optional: For production deployment
+# gunicorn==21.2.0  # Production WSGI server
+# python-dotenv==1.0.0  # Environment variable management

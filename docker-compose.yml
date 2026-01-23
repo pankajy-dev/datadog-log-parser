@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  log-parser-web:
+    build: .
+    container_name: datadog-log-parser
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - MAX_CONTENT_LENGTH=52428800  # 50MB in bytes
+    volumes:
+      # Mount for development (comment out for production)
+      # - ./src:/app/src
+      # - ./docs:/app/docs
+
+      # Temporary file storage
+      - log-parser-temp:/tmp
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - log-parser-network
+    labels:
+      - "com.datadog-log-parser.description=Datadog Log Parser Web UI"
+      - "com.datadog-log-parser.version=1.1.0"
+
+volumes:
+  log-parser-temp:
+    driver: local
+
+networks:
+  log-parser-network:
+    driver: bridge

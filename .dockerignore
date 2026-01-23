@@ -1,0 +1,61 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+*.egg
+dist
+build
+
+# Virtual environments
+venv
+env
+.venv
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Test files
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Examples
+examples/
+
+# CI/CD
+.github/
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+output/
+parsed_logs/
+test_output/
+
+# OS
+.DS_Store
+Thumbs.db

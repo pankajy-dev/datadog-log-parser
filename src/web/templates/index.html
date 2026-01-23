@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Parser Utility - Web UI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>📊 Log Parser Utility</h1>
+                <p class="subtitle">Parse logs from Datadog, CSV files, and more</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn-icon" onclick="showHelp()" title="Help">❓</button>
+                <button class="btn-icon" onclick="toggleSettings()" title="Settings">⚙️</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Input Section -->
+            <div class="section">
+                <h2>📥 Input</h2>
+
+                <!-- Tab Switcher -->
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('csv')">📁 CSV File</button>
+                    <button class="tab" onclick="switchTab('text')">📄 Text/Paste</button>
+                </div>
+
+                <!-- CSV Upload Tab -->
+                <div id="csv-tab" class="tab-content active">
+                    <div class="upload-area" id="upload-area">
+                        <input type="file" id="file-input" accept=".csv,.txt,.log,.json" style="display: none;">
+                        <div class="upload-icon">📁</div>
+                        <p class="upload-text">Drop CSV file here or <span class="link" onclick="document.getElementById('file-input').click()">browse</span></p>
+                        <p class="upload-hint">Supports .csv, .txt, .log files (max 50MB)</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="content-column">Content Column Name:</label>
+                        <input type="text" id="content-column" value="Content" placeholder="Content">
+                    </div>
+                </div>
+
+                <!-- Text Input Tab -->
+                <div id="text-tab" class="tab-content">
+                    <textarea id="text-input" placeholder="Paste your logs here...
+
+Example:
+Received event id:&quot;123&quot; type:&quot;test&quot; data:{field:&quot;value&quot;}"></textarea>
+                </div>
+            </div>
+
+            <!-- Options Section -->
+            <div class="section">
+                <h2>⚙️ Options</h2>
+                <div class="options-grid">
+                    <div class="option-item">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="decode-base64" checked>
+                            <span>Decode Base64</span>
+                        </label>
+                        <p class="option-description">Decode base64 encoded fields (public keys, etc.)</p>
+                    </div>
+
+                    <div class="option-item">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="redact">
+                            <span>Redact Sensitive Fields</span>
+                        </label>
+                        <p class="option-description">Hide keys, tokens, secrets (keeps first/last N chars)</p>
+                    </div>
+
+                    <div class="option-item">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="include-metadata" checked>
+                            <span>Include Metadata</span>
+                        </label>
+                        <p class="option-description">Include CSV metadata (Date, Host, Service)</p>
+                    </div>
+
+                    <div class="option-item">
+                        <label for="keep-chars">Keep Characters:</label>
+                        <div class="slider-container">
+                            <input type="range" id="keep-chars" min="2" max="10" value="4">
+                            <span id="keep-chars-value">4</span>
+                        </div>
+                        <p class="option-description">Number of chars to keep when redacting</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parse Button -->
+            <div class="section">
+                <button class="btn-primary" id="parse-btn" onclick="parseLog()">
+                    🚀 Parse Logs
+                </button>
+            </div>
+
+            <!-- Progress Bar -->
+            <div id="progress-bar" class="progress-bar" style="display: none;">
+                <div class="progress-fill"></div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="results-section" class="section" style="display: none;">
+                <div class="results-header">
+                    <h2>📋 Results</h2>
+                    <div class="results-actions">
+                        <span id="results-count" class="results-count"></span>
+                        <select id="format-select" class="format-select">
+                            <option value="pretty">Pretty JSON</option>
+                            <option value="compact">Compact JSON</option>
+                            <option value="array">JSON Array</option>
+                        </select>
+                        <button class="btn-secondary" onclick="downloadResults()">⬇️ Download</button>
+                        <button class="btn-secondary" onclick="copyResults()">📋 Copy</button>
+                    </div>
+                </div>
+                <div class="results-container">
+                    <pre id="results-output"></pre>
+                </div>
+            </div>
+
+            <!-- Error Section -->
+            <div id="error-section" class="error-section" style="display: none;">
+                <div class="error-content">
+                    <span class="error-icon">⚠️</span>
+                    <div class="error-message">
+                        <strong>Error</strong>
+                        <p id="error-text"></p>
+                    </div>
+                    <button class="btn-icon" onclick="closeError()">✕</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Log Parser Utility v1.0.0 | <a href="https://github.com" target="_blank">Documentation</a> | MIT License</p>
+        </footer>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📖 Help</h2>
+                <button class="btn-icon" onclick="closeHelp()">✕</button>
+            </div>
+            <div class="modal-body">
+                <h3>CSV File Format</h3>
+                <p>Upload a CSV file with a content column containing logs. Common formats from Datadog, CloudWatch, etc. are supported.</p>
+
+                <h3>Text Input</h3>
+                <p>Paste Datadog Protocol Buffer format logs or JSON logs directly.</p>
+
+                <h3>Redaction</h3>
+                <p>When enabled, sensitive fields (keys, tokens, passwords) are redacted, keeping only the first and last N characters.</p>
+                <p>Example: <code>"api_key": "sk_live_123...xyz"</code></p>
+
+                <h3>Output Formats</h3>
+                <ul>
+                    <li><strong>Pretty JSON:</strong> Formatted with indentation</li>
+                    <li><strong>Compact JSON:</strong> Single line per entry</li>
+                    <li><strong>JSON Array:</strong> All entries in one array</li>
+                </ul>
+
+                <h3>Keyboard Shortcuts</h3>
+                <ul>
+                    <li><kbd>Ctrl</kbd> + <kbd>Enter</kbd> - Parse logs</li>
+                    <li><kbd>Ctrl</kbd> + <kbd>C</kbd> - Copy results</li>
+                    <li><kbd>Esc</kbd> - Close modal</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
