@@ -432,20 +432,37 @@ async function parseText() {
     return await response.json();
 }
 
+// Helper function to sort object keys recursively
+function sortObjectKeys(obj) {
+    if (obj === null || typeof obj !== 'object') {
+        return obj;
+    }
+
+    if (Array.isArray(obj)) {
+        return obj.map(sortObjectKeys);
+    }
+
+    return Object.keys(obj).sort().reduce((result, key) => {
+        result[key] = sortObjectKeys(obj[key]);
+        return result;
+    }, {});
+}
+
 // Display Results
 function displayResults(logs, format) {
     const output = document.getElementById('results-output');
+    const sortedLogs = logs.map(sortObjectKeys);
     let content;
 
     switch (format) {
         case 'compact':
-            content = logs.map(log => JSON.stringify(log)).join('\n');
+            content = sortedLogs.map(log => JSON.stringify(log)).join('\n');
             break;
         case 'array':
-            content = JSON.stringify(logs, null, 2);
+            content = JSON.stringify(sortedLogs, null, 2);
             break;
         default: // pretty
-            content = logs.map(log => JSON.stringify(log, null, 2)).join('\n\n');
+            content = sortedLogs.map(log => JSON.stringify(log, null, 2)).join('\n\n');
     }
 
     output.textContent = content;

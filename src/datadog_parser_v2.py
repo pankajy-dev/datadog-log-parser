@@ -376,9 +376,9 @@ def format_json_strings(parsed_logs: List[Dict[str, Any]], pretty: bool = True) 
         List of JSON strings
     """
     if pretty:
-        return [json.dumps(log, indent=2, ensure_ascii=False) for log in parsed_logs]
+        return [json.dumps(log, indent=2, ensure_ascii=False, sort_keys=True) for log in parsed_logs]
     else:
-        return [json.dumps(log, ensure_ascii=False) for log in parsed_logs]
+        return [json.dumps(log, ensure_ascii=False, sort_keys=True) for log in parsed_logs]
 
 
 def main():

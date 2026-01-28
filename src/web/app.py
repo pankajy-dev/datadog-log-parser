@@ -178,11 +178,11 @@ def download():
 
         # Format JSON based on type
         if format_type == 'compact':
-            json_content = json.dumps(logs, ensure_ascii=False)
+            json_content = json.dumps(logs, ensure_ascii=False, sort_keys=True)
         elif format_type == 'array':
-            json_content = json.dumps(logs, indent=2, ensure_ascii=False)
+            json_content = json.dumps(logs, indent=2, ensure_ascii=False, sort_keys=True)
         else:  # pretty (default)
-            json_content = json.dumps(logs, indent=2, ensure_ascii=False)
+            json_content = json.dumps(logs, indent=2, ensure_ascii=False, sort_keys=True)
 
         # Create temp file
         temp_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json')
