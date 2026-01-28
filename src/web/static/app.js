@@ -3,8 +3,177 @@ let currentLogs = null;
 let currentTab = 'csv';
 let uploadedFile = null;
 
+// History Manager
+const HistoryManager = {
+    storageKey: 'logParserHistory',
+    maxEntries: 50,
+
+    init() {
+        try {
+            const data = localStorage.getItem(this.storageKey);
+            if (!data) {
+                this.save({ entries: [], maxEntries: this.maxEntries });
+            } else {
+                const parsed = JSON.parse(data);
+                if (!parsed.entries || !Array.isArray(parsed.entries)) {
+                    this.save({ entries: [], maxEntries: this.maxEntries });
+                }
+            }
+        } catch (e) {
+            console.error('Failed to initialize history:', e);
+            this.save({ entries: [], maxEntries: this.maxEntries });
+        }
+    },
+
+    save(data) {
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(data));
+        } catch (e) {
+            if (e.name === 'QuotaExceededError') {
+                console.warn('Storage quota exceeded, pruning entries...');
+                this.pruneOldEntries(true);
+            } else {
+                console.error('Failed to save history:', e);
+            }
+        }
+    },
+
+    load() {
+        try {
+            const data = localStorage.getItem(this.storageKey);
+            return data ? JSON.parse(data) : { entries: [], maxEntries: this.maxEntries };
+        } catch (e) {
+            console.error('Failed to load history:', e);
+            return { entries: [], maxEntries: this.maxEntries };
+        }
+    },
+
+    saveEntry(logs, sourceType, sourceName, config) {
+        try {
+            // Truncate large log arrays to prevent storage issues
+            const truncatedLogs = logs.length > 100 ? logs.slice(0, 100) : logs;
+
+            const entry = {
+                id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                timestamp: Date.now(),
+                sourceType: sourceType,
+                sourceName: sourceName,
+                configuration: config,
+                entryCount: logs.length,
+                logs: truncatedLogs,
+                preview: this.generatePreview(logs),
+                starred: false
+            };
+
+            const data = this.load();
+            data.entries.unshift(entry);
+
+            // Auto-prune if needed
+            if (data.entries.length > this.maxEntries) {
+                this.pruneOldEntries(false, data);
+            }
+
+            this.save(data);
+            return entry;
+        } catch (e) {
+            console.error('Failed to save history entry:', e);
+            return null;
+        }
+    },
+
+    getHistory(filterStarred = false) {
+        const data = this.load();
+        let entries = data.entries || [];
+
+        if (filterStarred) {
+            entries = entries.filter(e => e.starred);
+        }
+
+        // Sort: starred first, then by timestamp
+        entries.sort((a, b) => {
+            if (a.starred && !b.starred) return -1;
+            if (!a.starred && b.starred) return 1;
+            return b.timestamp - a.timestamp;
+        });
+
+        return entries;
+    },
+
+    getEntry(id) {
+        const data = this.load();
+        return data.entries.find(e => e.id === id);
+    },
+
+    deleteEntry(id) {
+        const data = this.load();
+        data.entries = data.entries.filter(e => e.id !== id);
+        this.save(data);
+    },
+
+    clearAll(keepStarred = true) {
+        const data = this.load();
+        if (keepStarred) {
+            data.entries = data.entries.filter(e => e.starred);
+        } else {
+            data.entries = [];
+        }
+        this.save(data);
+    },
+
+    toggleStar(id) {
+        const data = this.load();
+        const entry = data.entries.find(e => e.id === id);
+        if (entry) {
+            entry.starred = !entry.starred;
+            this.save(data);
+            return entry.starred;
+        }
+        return false;
+    },
+
+    pruneOldEntries(force = false, existingData = null) {
+        const data = existingData || this.load();
+        const nonStarred = data.entries.filter(e => !e.starred);
+        const starred = data.entries.filter(e => e.starred);
+
+        if (force) {
+            // Remove half of non-starred entries
+            const toKeep = Math.floor(nonStarred.length / 2);
+            data.entries = [...starred, ...nonStarred.slice(0, toKeep)];
+        } else {
+            // Remove oldest non-starred entries to fit limit
+            const maxNonStarred = this.maxEntries - starred.length;
+            data.entries = [...starred, ...nonStarred.slice(0, maxNonStarred)];
+        }
+
+        this.save(data);
+    },
+
+    generatePreview(logs) {
+        if (!logs || logs.length === 0) return 'No logs';
+        const firstLog = JSON.stringify(logs[0]);
+        return firstLog.length > 100 ? firstLog.substring(0, 100) + '...' : firstLog;
+    },
+
+    checkStorageSize() {
+        try {
+            const data = localStorage.getItem(this.storageKey);
+            if (data) {
+                const size = new Blob([data]).size;
+                const sizeMB = (size / (1024 * 1024)).toFixed(2);
+                console.log(`History storage size: ${sizeMB} MB`);
+                return size;
+            }
+        } catch (e) {
+            console.error('Failed to check storage size:', e);
+        }
+        return 0;
+    }
+};
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', function() {
+    HistoryManager.init();
     initializeEventListeners();
     initializeDragAndDrop();
     initializeKeyboardShortcuts();
@@ -84,9 +253,14 @@ function initializeKeyboardShortcuts() {
             }
         }
 
-        // Escape: Close modal
+        // Escape: Close modal or history sidebar
         if (e.key === 'Escape') {
-            closeHelp();
+            const sidebar = document.getElementById('history-sidebar');
+            if (sidebar && sidebar.classList.contains('open')) {
+                toggleHistory();
+            } else {
+                closeHelp();
+            }
         }
     });
 }
@@ -187,6 +361,26 @@ async function parseLog() {
             currentLogs = response.logs;
             displayResults(currentLogs, 'pretty');
             showResults(response.count, response.stats);
+
+            // Save to history
+            let sourceName;
+            if (currentTab === 'csv') {
+                sourceName = uploadedFile ? uploadedFile.name : 'CSV File';
+            } else {
+                // For text input, show a preview of the content
+                const textContent = document.getElementById('text-input').value.trim();
+                const firstLine = textContent.split('\n')[0];
+                const preview = firstLine.length > 50 ? firstLine.substring(0, 50) + '...' : firstLine;
+                sourceName = preview || 'Text Input';
+            }
+            const config = {
+                decode_base64: document.getElementById('decode-base64').checked,
+                redact: document.getElementById('redact').checked,
+                keep_chars: parseInt(document.getElementById('keep-chars').value),
+                include_metadata: currentTab === 'csv' ? document.getElementById('include-metadata').checked : false,
+                content_column: currentTab === 'csv' ? document.getElementById('content-column').value : null
+            };
+            HistoryManager.saveEntry(response.logs, currentTab, sourceName, config);
         } else {
             showError(response.error || 'Failed to parse logs');
         }
@@ -395,21 +589,214 @@ function toggleSettings() {
     alert('Settings panel coming soon!');
 }
 
+// History Functions
+let currentHistoryFilter = { starred: false, search: '' };
+
+function toggleHistory(event) {
+    // Stop event propagation to prevent window.onclick from interfering
+    if (event) {
+        event.stopPropagation();
+    }
+
+    const sidebar = document.getElementById('history-sidebar');
+    if (!sidebar) {
+        console.error('History sidebar element not found!');
+        return;
+    }
+
+    const isOpen = sidebar.classList.contains('open');
+
+    if (isOpen) {
+        sidebar.classList.remove('open');
+    } else {
+        sidebar.classList.add('open');
+        renderHistoryList();
+    }
+}
+
+function renderHistoryList(searchTerm = '', starredOnly = false) {
+    const entries = HistoryManager.getHistory(starredOnly);
+    const listContainer = document.getElementById('history-list');
+    const emptyState = document.getElementById('history-empty');
+
+    // Filter by search term
+    let filteredEntries = entries;
+    if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        filteredEntries = entries.filter(e =>
+            e.sourceName.toLowerCase().includes(search) ||
+            e.preview.toLowerCase().includes(search) ||
+            e.sourceType.toLowerCase().includes(search)
+        );
+    }
+
+    if (filteredEntries.length === 0) {
+        listContainer.style.display = 'none';
+        emptyState.style.display = 'flex';
+        return;
+    }
+
+    listContainer.style.display = 'block';
+    emptyState.style.display = 'none';
+
+    listContainer.innerHTML = filteredEntries.map((entry, index) => `
+        <div class="history-entry ${entry.starred ? 'starred' : ''}" data-id="${entry.id}">
+            <div class="history-entry-number">#${index + 1}</div>
+            <div class="history-entry-content">
+                <div class="history-entry-header">
+                    <div class="history-header-left">
+                        <span class="history-source-name">${entry.sourceName}</span>
+                        <span class="source-type-badge ${entry.sourceType}">${entry.sourceType === 'csv' ? '📁 CSV' : '📄 Text'}</span>
+                    </div>
+                    <button class="star-button" onclick="toggleStarEntry('${entry.id}')" title="${entry.starred ? 'Unstar' : 'Star'}">
+                        ${entry.starred ? '★' : '☆'}
+                    </button>
+                </div>
+                <div class="history-entry-meta">
+                    <span class="history-entry-count">📊 ${entry.entryCount} log${entry.entryCount !== 1 ? 's' : ''}</span>
+                    <span class="history-timestamp">🕒 ${formatTimeAgo(entry.timestamp)}</span>
+                </div>
+                <div class="history-entry-actions">
+                    <button class="btn-secondary btn-sm" onclick="restoreHistory('${entry.id}')">View</button>
+                    <button class="btn-secondary btn-sm btn-delete" onclick="deleteHistoryEntry('${entry.id}')">Delete</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function restoreHistory(id) {
+    const entry = HistoryManager.getEntry(id);
+    if (!entry) {
+        showError('History entry not found');
+        return;
+    }
+
+    // Restore logs
+    currentLogs = entry.logs;
+    displayResults(currentLogs, 'pretty');
+
+    // Update results section
+    showResults(entry.entryCount, null);
+
+    // Close sidebar
+    toggleHistory();
+
+    // Scroll to results
+    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function deleteHistoryEntry(id) {
+    const entry = HistoryManager.getEntry(id);
+    if (!entry) return;
+
+    const confirmMsg = entry.starred
+        ? 'This is a starred entry. Are you sure you want to delete it?'
+        : 'Are you sure you want to delete this entry?';
+
+    if (confirm(confirmMsg)) {
+        HistoryManager.deleteEntry(id);
+        renderHistoryList(currentHistoryFilter.search, currentHistoryFilter.starred);
+    }
+}
+
+function clearHistory() {
+    const data = HistoryManager.load();
+    const starredCount = data.entries.filter(e => e.starred).length;
+    const totalCount = data.entries.length;
+
+    if (totalCount === 0) {
+        alert('History is already empty');
+        return;
+    }
+
+    let confirmMsg = 'Clear all history?';
+    let keepStarred = true;
+
+    if (starredCount > 0) {
+        const choice = confirm(`Clear all ${totalCount} entries?\n\nClick OK to keep ${starredCount} starred entries, or Cancel to delete everything.`);
+        if (choice) {
+            keepStarred = true;
+        } else {
+            const confirmAll = confirm('Delete ALL entries including starred ones?');
+            if (!confirmAll) return;
+            keepStarred = false;
+        }
+    } else {
+        if (!confirm(`Delete all ${totalCount} entries?`)) return;
+        keepStarred = false;
+    }
+
+    HistoryManager.clearAll(keepStarred);
+    renderHistoryList(currentHistoryFilter.search, currentHistoryFilter.starred);
+}
+
+function toggleStarEntry(id) {
+    const newState = HistoryManager.toggleStar(id);
+    renderHistoryList(currentHistoryFilter.search, currentHistoryFilter.starred);
+}
+
+function filterStarred(enabled) {
+    currentHistoryFilter.starred = enabled;
+
+    // Update button states
+    const buttons = document.querySelectorAll('.filter-btn');
+    buttons.forEach(btn => {
+        if (enabled && btn.dataset.filter === 'starred') {
+            btn.classList.add('active');
+        } else if (!enabled && btn.dataset.filter === 'all') {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    renderHistoryList(currentHistoryFilter.search, enabled);
+}
+
+function formatTimeAgo(timestamp) {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+
+    const date = new Date(timestamp);
+    return date.toLocaleDateString();
+}
+
+function searchHistory() {
+    const searchTerm = document.getElementById('history-search').value;
+    currentHistoryFilter.search = searchTerm;
+    renderHistoryList(searchTerm, currentHistoryFilter.starred);
+}
+
 // Click outside modal to close
 window.onclick = function(event) {
     const modal = document.getElementById('help-modal');
     if (event.target === modal) {
         closeHelp();
     }
+
+    // Close history sidebar when clicking outside
+    const sidebar = document.getElementById('history-sidebar');
+    if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(event.target)) {
+        // Check if click was on history button (check both the button element and its onclick attribute)
+        const historyBtn = event.target.closest('.btn-with-text') || event.target.closest('[onclick*="toggleHistory"]');
+        if (!historyBtn) {
+            toggleHistory();
+        }
+    }
 }
 
-// Add syntax highlighting CSS
+// Add syntax highlighting CSS (CloudBees dark theme colors)
 const style = document.createElement('style');
 style.textContent = `
-    #results-output .key { color: #881391; }
-    #results-output .string { color: #1a7f1a; }
-    #results-output .number { color: #1c00cf; }
-    #results-output .boolean { color: #0c4f7c; }
-    #results-output .null { color: #808080; }
+    #results-output .key { color: #3b9aee; }
+    #results-output .string { color: #98c379; }
+    #results-output .number { color: #d19a66; }
+    #results-output .boolean { color: #c678dd; }
+    #results-output .null { color: #82868b; }
 `;
 document.head.appendChild(style);

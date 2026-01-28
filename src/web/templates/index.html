@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Log Parser Utility - Web UI</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>📊</text></svg>">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -15,6 +16,7 @@
                 <p class="subtitle">Parse logs from Datadog, CSV files, and more</p>
             </div>
             <div class="header-actions">
+                <button class="btn-with-text" onclick="toggleHistory(event)">📜 History</button>
                 <button class="btn-icon" onclick="showHelp()" title="Help">❓</button>
                 <button class="btn-icon" onclick="toggleSettings()" title="Settings">⚙️</button>
             </div>
@@ -137,6 +139,37 @@ Received event id:&quot;123&quot; type:&quot;test&quot; data:{field:&quot;value&
                     </div>
                     <button class="btn-icon" onclick="closeError()">✕</button>
                 </div>
+            </div>
+        </div>
+
+        <!-- History Sidebar -->
+        <div id="history-sidebar" class="history-sidebar">
+            <div class="history-header">
+                <h2>📜 History</h2>
+                <button class="btn-icon" onclick="toggleHistory(event)">✕</button>
+            </div>
+
+            <div class="history-controls">
+                <input type="text" id="history-search" class="history-search" placeholder="Search history..." oninput="searchHistory()">
+
+                <div class="history-filter-buttons">
+                    <button class="filter-btn active" onclick="filterStarred(false)" data-filter="all">All</button>
+                    <button class="filter-btn" onclick="filterStarred(true)" data-filter="starred">★ Starred</button>
+                </div>
+
+                <button class="btn-secondary" onclick="clearHistory()" style="width: 100%; margin-top: 10px;">
+                    🗑️ Clear All
+                </button>
+            </div>
+
+            <div id="history-list" class="history-list">
+                <!-- History entries will be rendered here -->
+            </div>
+
+            <div id="history-empty" class="history-empty" style="display: none;">
+                <div class="empty-icon">📭</div>
+                <p>No history yet</p>
+                <p class="empty-hint">Parse some logs to see them here</p>
             </div>
         </div>
 
