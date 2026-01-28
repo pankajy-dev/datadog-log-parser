@@ -478,6 +478,7 @@ function syntaxHighlight(json) {
 function showResults(count, stats) {
     const resultsSection = document.getElementById('results-section');
     const resultsCount = document.getElementById('results-count');
+    const placeholder = document.getElementById('right-panel-placeholder');
 
     let countText = `${count} log${count !== 1 ? 's' : ''} parsed`;
     if (stats) {
@@ -487,10 +488,23 @@ function showResults(count, stats) {
     resultsCount.textContent = countText;
     resultsSection.style.display = 'block';
     resultsSection.classList.add('fade-in');
+
+    // Hide placeholder
+    if (placeholder) {
+        placeholder.classList.add('hidden');
+    }
 }
 
 function hideResults() {
-    document.getElementById('results-section').style.display = 'none';
+    const resultsSection = document.getElementById('results-section');
+    const placeholder = document.getElementById('right-panel-placeholder');
+
+    resultsSection.style.display = 'none';
+
+    // Show placeholder
+    if (placeholder) {
+        placeholder.classList.remove('hidden');
+    }
 }
 
 // Download Results
@@ -589,6 +603,20 @@ function toggleSettings() {
     alert('Settings panel coming soon!');
 }
 
+// Toggle Options Section
+function toggleOptions() {
+    const content = document.getElementById('options-content');
+    const icon = document.getElementById('options-icon');
+
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.classList.add('expanded');
+    } else {
+        content.style.display = 'none';
+        icon.classList.remove('expanded');
+    }
+}
+
 // History Functions
 let currentHistoryFilter = { starred: false, search: '' };
 
@@ -682,8 +710,11 @@ function restoreHistory(id) {
     // Close sidebar
     toggleHistory();
 
-    // Scroll to results
-    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Scroll to results (scroll to top of right panel)
+    const resultsSection = document.getElementById('results-section');
+    if (resultsSection) {
+        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
 function deleteHistoryEntry(id) {

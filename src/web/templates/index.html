@@ -24,8 +24,10 @@
 
         <!-- Main Content -->
         <div class="main-content">
-            <!-- Input Section -->
-            <div class="section">
+            <!-- Left Panel -->
+            <div class="left-panel">
+                <!-- Input Section -->
+                <div class="section">
                 <h2>📥 Input</h2>
 
                 <!-- Tab Switcher -->
@@ -58,9 +60,28 @@ Received event id:&quot;123&quot; type:&quot;test&quot; data:{field:&quot;value&
                 </div>
             </div>
 
-            <!-- Options Section -->
-            <div class="section">
-                <h2>⚙️ Options</h2>
+                <!-- Parse Button -->
+                <div class="section">
+                    <button class="btn-primary" id="parse-btn" onclick="parseLog()">
+                        🚀 Parse Logs
+                    </button>
+                </div>
+
+                <!-- Progress Bar -->
+                <div id="progress-bar" class="progress-bar" style="display: none;">
+                    <div class="progress-fill"></div>
+                </div>
+
+            <!-- Options Section (Collapsible) -->
+            <div class="section collapsible-section">
+                <div class="collapsible-header" onclick="toggleOptions()">
+                    <div>
+                        <h2>⚙️ Options</h2>
+                        <p class="collapsible-hint">Click to configure parsing options</p>
+                    </div>
+                    <span class="collapse-icon" id="options-icon">▼</span>
+                </div>
+                <div class="collapsible-content" id="options-content" style="display: none;">
                 <div class="options-grid">
                     <div class="option-item">
                         <label class="checkbox-label">
@@ -95,21 +116,22 @@ Received event id:&quot;123&quot; type:&quot;test&quot; data:{field:&quot;value&
                         <p class="option-description">Number of chars to keep when redacting</p>
                     </div>
                 </div>
+                </div>
+            </div>
             </div>
 
-            <!-- Parse Button -->
-            <div class="section">
-                <button class="btn-primary" id="parse-btn" onclick="parseLog()">
-                    🚀 Parse Logs
-                </button>
-            </div>
+            <!-- Right Panel -->
+            <div class="right-panel">
+                <!-- Placeholder -->
+                <div id="right-panel-placeholder" class="right-panel-placeholder">
+                    <div>
+                        <div style="font-size: 3rem; margin-bottom: 15px;">📊</div>
+                        <p>Your parsed results will appear here</p>
+                        <p style="font-size: 0.85rem; margin-top: 10px;">Upload a file or paste text, then click "Parse Logs"</p>
+                    </div>
+                </div>
 
-            <!-- Progress Bar -->
-            <div id="progress-bar" class="progress-bar" style="display: none;">
-                <div class="progress-fill"></div>
-            </div>
-
-            <!-- Results Section -->
+                <!-- Results Section -->
             <div id="results-section" class="section" style="display: none;">
                 <div class="results-header">
                     <h2>📋 Results</h2>
@@ -129,15 +151,16 @@ Received event id:&quot;123&quot; type:&quot;test&quot; data:{field:&quot;value&
                 </div>
             </div>
 
-            <!-- Error Section -->
-            <div id="error-section" class="error-section" style="display: none;">
-                <div class="error-content">
-                    <span class="error-icon">⚠️</span>
-                    <div class="error-message">
-                        <strong>Error</strong>
-                        <p id="error-text"></p>
+                <!-- Error Section -->
+                <div id="error-section" class="error-section" style="display: none;">
+                    <div class="error-content">
+                        <span class="error-icon">⚠️</span>
+                        <div class="error-message">
+                            <strong>Error</strong>
+                            <p id="error-text"></p>
+                        </div>
+                        <button class="btn-icon" onclick="closeError()">✕</button>
                     </div>
-                    <button class="btn-icon" onclick="closeError()">✕</button>
                 </div>
             </div>
         </div>
