@@ -1,6 +1,6 @@
 // Global state
 let currentLogs = null;
-let currentTab = 'csv';
+let currentTab = 'text';
 let uploadedFile = null;
 
 // History Manager

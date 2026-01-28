@@ -32,12 +32,12 @@
 
                 <!-- Tab Switcher -->
                 <div class="tabs">
-                    <button class="tab active" onclick="switchTab('csv')">📁 CSV File</button>
-                    <button class="tab" onclick="switchTab('text')">📄 Text/Paste</button>
+                    <button class="tab" onclick="switchTab('csv')">📁 CSV File</button>
+                    <button class="tab active" onclick="switchTab('text')">📄 Text/Paste</button>
                 </div>
 
                 <!-- CSV Upload Tab -->
-                <div id="csv-tab" class="tab-content active">
+                <div id="csv-tab" class="tab-content">
                     <div class="upload-area" id="upload-area">
                         <input type="file" id="file-input" accept=".csv,.txt,.log,.json" style="display: none;">
                         <div class="upload-icon">📁</div>
@@ -52,7 +52,7 @@
                 </div>
 
                 <!-- Text Input Tab -->
-                <div id="text-tab" class="tab-content">
+                <div id="text-tab" class="tab-content active">
                     <textarea id="text-input" placeholder="Paste your logs here...
 
 Example:

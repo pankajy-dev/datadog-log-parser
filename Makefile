@@ -1,32 +1,38 @@
-.PHONY: help install install-dev web-ui test clean lint format docker-build docker-run
+.PHONY: help install install-dev standalone web-ui test clean lint format
 
 # Default target
 help:
 	@echo "Log Parser Utility - Makefile Commands"
 	@echo "======================================="
 	@echo ""
+	@echo "Quick Start:"
+	@echo "  make standalone     Open standalone HTML version (RECOMMENDED)"
+	@echo ""
 	@echo "Development:"
 	@echo "  make install        Install production dependencies"
 	@echo "  make install-dev    Install development dependencies"
-	@echo "  make web-ui         Start the web UI"
+	@echo "  make web-ui         Start the Flask web UI (optional)"
 	@echo "  make test           Run tests"
 	@echo "  make lint           Run linters"
 	@echo "  make format         Format code"
 	@echo ""
-	@echo "Docker:"
-	@echo "  make docker-build   Build Docker image"
-	@echo "  make docker-run     Run Docker container"
-	@echo "  make docker-stop    Stop Docker container"
+	@echo "CLI Tools:"
+	@echo "  make parse-text     Parse text logs (usage: make parse-text ARGS='...')"
+	@echo "  make parse-csv      Parse CSV file (usage: make parse-csv ARGS='-f file.csv')"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make clean          Clean temporary files"
-	@echo "  make docs           Generate documentation"
 	@echo ""
+
+# Quick Start - Standalone Version
+standalone:
+	@echo "Opening standalone version..."
+	@open standalone/log-parser.html || xdg-open standalone/log-parser.html || echo "Please open standalone/log-parser.html in your browser"
 
 # Installation
 install:
 	@echo "Installing production dependencies..."
-	pip3 install -r src/web/requirements.txt
+	pip3 install flask
 
 install-dev: install
 	@echo "Installing development dependencies..."
@@ -38,8 +44,9 @@ install-prod: install
 
 # Running
 web-ui:
-	@echo "Starting web UI..."
-	@./start-web-ui.sh
+	@echo "Starting Flask web UI..."
+	@echo "Note: The standalone version (make standalone) is recommended!"
+	@cd src/web && python3 -m flask --app app run --port 5000
 
 web-ui-prod:
 	@echo "Starting web UI with gunicorn..."
@@ -64,23 +71,6 @@ format:
 	@echo "Formatting code..."
 	black src/ tests/ --line-length=100
 
-# Docker
-docker-build:
-	@echo "Building Docker image..."
-	docker build -t datadog-log-parser:latest .
-
-docker-run:
-	@echo "Running Docker container..."
-	docker-compose up -d
-
-docker-stop:
-	@echo "Stopping Docker container..."
-	docker-compose down
-
-docker-logs:
-	@echo "Showing Docker logs..."
-	docker-compose logs -f
-
 # Cleaning
 clean:
 	@echo "Cleaning temporary files..."
@@ -92,13 +82,6 @@ clean:
 	find . -type f -name ".coverage" -delete
 	find . -type d -name "htmlcov" -exec rm -rf {} +
 	rm -rf build/ dist/
-
-# Documentation
-docs:
-	@echo "Documentation is in markdown format:"
-	@echo "  - README.md"
-	@echo "  - docs/"
-	@echo "  - QUICK_REFERENCE.md"
 
 # CLI Tools
 parse-text:
