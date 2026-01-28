@@ -65,10 +65,20 @@ body {
     font-size: 2rem;
     font-weight: 700;
     margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.header-content h1 .title-text {
     background: linear-gradient(135deg, var(--primary-color), var(--accent-cyan));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+}
+
+.header-content h1 .title-icon {
+    font-size: 2rem;
 }
 
 .subtitle {
@@ -951,7 +961,7 @@ input[type="range"] {
         <!-- Header -->
         <header class="header">
             <div class="header-content">
-                <h1>📊 Log Parser Utility</h1>
+                <h1><span class="title-icon">📊</span><span class="title-text">Log Parser Utility</span></h1>
                 <p class="subtitle">Parse logs from Datadog, CSV files, and more • Standalone Version</p>
             </div>
             <div class="header-actions">
@@ -1081,7 +1091,7 @@ Received event id:&quot;123&quot; type:&quot;test&quot; data:{field:&quot;value&
                             <option value="array">JSON Array</option>
                         </select>
                         <button class="btn-secondary" onclick="downloadResults()">⬇️ Download</button>
-                        <button class="btn-secondary" onclick="copyResults()">📋 Copy</button>
+                        <button class="btn-secondary" onclick="copyResults(event)">📋 Copy</button>
                     </div>
                 </div>
                 <div class="results-container">
@@ -1136,7 +1146,7 @@ Received event id:&quot;123&quot; type:&quot;test&quot; data:{field:&quot;value&
 
         <!-- Footer -->
         <footer class="footer">
-            <p>Log Parser Utility v2.0.0 (Standalone) | No Server Required</p>
+            <p>📊 Log Parser Utility v2.0.0 (Standalone) | No Server Required</p>
         </footer>
     </div>
 
@@ -1998,7 +2008,7 @@ function downloadResults() {
     document.body.removeChild(a);
 }
 
-function copyResults() {
+function copyResults(event) {
     const output = document.getElementById('results-output');
     const text = output.textContent;
 
