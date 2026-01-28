@@ -121,10 +121,18 @@ class ProtobufTextParser:
 
     def parse(self) -> Dict[str, Any]:
         """Parse the entire protobuf text format"""
-        # Remove prefix like "Received ... event"
-        prefix_match = re.match(r'^Received\s+\w+\s+event\s+', self.text)
-        if prefix_match:
-            self.pos = prefix_match.end()
+        # Try to find where the actual protobuf data starts
+        # Look for a field followed by a value (field:"value" or field:{...} or field:number)
+        # This distinguishes actual protobuf fields from prefix text like "metadata:"
+        match = re.search(r'\b([a-zA-Z_][a-zA-Z0-9_]*):\s*["{0-9]', self.text)
+        if match:
+            # Start parsing from the field name (not the value)
+            self.pos = match.start()
+        else:
+            # Fallback: look for any field:value pattern
+            match = re.search(r'\b([a-zA-Z_][a-zA-Z0-9_]*):', self.text)
+            if match:
+                self.pos = match.start()
 
         result = {}
 
@@ -254,10 +262,24 @@ def split_log_entries(log_text: str) -> List[str]:
     Returns:
         List of individual log entry strings
     """
-    # Split on the pattern "Received ... event"
-    pattern = r'(?=Received\s+\w+\s+event\s+)'
-    entries = re.split(pattern, log_text)
-    return [entry.strip() for entry in entries if entry.strip()]
+    # Try multiple splitting patterns for different log formats
+    patterns = [
+        r'(?=Received\s+\w+\s+event\s+)',           # "Received ... event"
+        r'(?=Processing\s+.*?\s+metadata:\s+)',     # "Processing ... metadata:"
+        r'(?=\n\s*[a-zA-Z_][a-zA-Z0-9_]*:)',        # New line followed by field:value
+    ]
+
+    entries = [log_text]  # Start with the whole text
+
+    # Try each pattern
+    for pattern in patterns:
+        split_result = re.split(pattern, log_text)
+        split_result = [entry.strip() for entry in split_result if entry.strip()]
+        # Use this split if it found multiple entries
+        if len(split_result) > len(entries):
+            entries = split_result
+
+    return entries
 
 
 def parse_datadog_logs(log_text: str, decode_base64: bool = True, redact: bool = False,
@@ -274,24 +296,70 @@ def parse_datadog_logs(log_text: str, decode_base64: bool = True, redact: bool =
     Returns:
         List of parsed JSON objects
     """
+    # First, try to detect if the entire text is JSON
+    stripped_text = log_text.strip()
+    if stripped_text.startswith('{') or stripped_text.startswith('['):
+        try:
+            json_data = json.loads(stripped_text)
+            if isinstance(json_data, dict):
+                json_data = [json_data]
+
+            # Process JSON data with decode_base64 and redact if needed
+            for item in json_data:
+                if decode_base64:
+                    item = decode_base64_fields(item)
+                if redact:
+                    item = redact_sensitive_fields(item, keep_chars=keep_chars)
+
+            return json_data if isinstance(json_data, list) else [json_data]
+        except json.JSONDecodeError:
+            # Not valid JSON, continue with protobuf parsing
+            pass
+
     entries = split_log_entries(log_text)
     results = []
 
     for i, entry in enumerate(entries):
         try:
+            # Check if this individual entry is JSON
+            entry_stripped = entry.strip()
+            if entry_stripped.startswith('{'):
+                try:
+                    parsed = json.loads(entry_stripped)
+
+                    if decode_base64:
+                        parsed = decode_base64_fields(parsed)
+                    if redact:
+                        parsed = redact_sensitive_fields(parsed, keep_chars=keep_chars)
+
+                    results.append(parsed)
+                    continue
+                except json.JSONDecodeError:
+                    pass
+
+            # Try parsing as protobuf text format
             parser = ProtobufTextParser(entry)
             parsed = parser.parse()
 
-            if decode_base64:
-                parsed = decode_base64_fields(parsed)
-
-            if redact:
-                parsed = redact_sensitive_fields(parsed, keep_chars=keep_chars)
+            # If parsing resulted in empty dict, treat as plain text
+            if not parsed:
+                parsed = {"message": entry, "format": "plain_text"}
+            else:
+                if decode_base64:
+                    parsed = decode_base64_fields(parsed)
+                if redact:
+                    parsed = redact_sensitive_fields(parsed, keep_chars=keep_chars)
 
             results.append(parsed)
         except Exception as e:
+            # If parsing fails, store the raw entry as plain text
             print(f"Error parsing entry {i + 1}: {e}")
             print(f"Entry snippet: {entry[:200]}...")
+            results.append({
+                "message": entry,
+                "format": "plain_text",
+                "parse_error": str(e)
+            })
 
     return results
 

@@ -11,7 +11,9 @@ A comprehensive utility for parsing and extracting logs from Datadog format, CSV
 ```bash
 # Start the web interface
 ./start-web-ui.sh
+```
 
+````
 # Or manually:
 cd src/web
 pip3 install -r requirements.txt
