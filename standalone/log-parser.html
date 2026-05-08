@@ -1309,9 +1309,22 @@ Received event id:&quot;123&quot; type:&quot;test&quot; data:{field:&quot;value&
                 </div>
                 <div class="comparison-selector">
                     <label>Right (Compare with):</label>
-                    <select id="compare-right" class="compare-select"></select>
+                    <select id="compare-right" class="compare-select">
+                        <option value="file">📁 Upload File / Paste Text</option>
+                    </select>
                 </div>
                 <button class="btn-primary" onclick="performComparison()">Compare</button>
+            </div>
+            <div id="compare-file-input" style="display: none; padding: 20px; border-bottom: 1px solid var(--border-color); background: var(--bg-secondary);">
+                <div style="margin-bottom: 10px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); font-size: 0.9rem;">Paste Log or Upload File:</label>
+                    <textarea id="compare-text-input" placeholder="Paste log text here..." style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--border-radius); background: var(--bg-primary); color: var(--text-primary); font-family: monospace; font-size: 0.85rem; resize: vertical;"></textarea>
+                </div>
+                <div>
+                    <input type="file" id="compare-file" accept=".json,.txt,.log" style="display: none;" onchange="handleCompareFile(event)">
+                    <button class="btn-secondary" onclick="document.getElementById('compare-file').click()">📁 Choose File</button>
+                    <span id="compare-file-name" style="margin-left: 10px; color: var(--text-secondary); font-size: 0.9rem;"></span>
+                </div>
             </div>
             <div id="comparison-result" class="comparison-result"></div>
         </div>
@@ -2493,10 +2506,22 @@ function openComparison() {
         rightSelect.appendChild(option2);
     });
 
-    // Set right select to second entry if available
+    // Add file/paste option to right select
+    const fileOption = document.createElement('option');
+    fileOption.value = 'file';
+    fileOption.textContent = '📁 Upload File / Paste Text';
+    rightSelect.appendChild(fileOption);
+
+    // Set right select to second entry if available, otherwise to file option
     if (currentLogs.length > 1) {
         rightSelect.selectedIndex = 1;
+    } else {
+        rightSelect.value = 'file';
+        document.getElementById('compare-file-input').style.display = 'block';
     }
+
+    // Add listener for right select changes
+    rightSelect.addEventListener('change', handleCompareSelectChange);
 
     modal.style.display = 'flex';
 }
@@ -2504,20 +2529,61 @@ function openComparison() {
 function closeComparison() {
     document.getElementById('comparison-modal').style.display = 'none';
     document.getElementById('comparison-result').innerHTML = '';
+    document.getElementById('compare-text-input').value = '';
+    document.getElementById('compare-file').value = '';
+    document.getElementById('compare-file-name').textContent = '';
+    document.getElementById('compare-file-input').style.display = 'none';
 }
 
-function performComparison() {
-    const leftIndex = parseInt(document.getElementById('compare-left').value);
-    const rightIndex = parseInt(document.getElementById('compare-right').value);
+async function performComparison() {
+    const leftIndex = Number.parseInt(document.getElementById('compare-left').value);
+    const rightValue = document.getElementById('compare-right').value;
 
-    if (leftIndex === rightIndex) {
-        document.getElementById('comparison-result').innerHTML =
-            '<p style="text-align: center; color: var(--warning-color); padding: 40px;">Please select two different entries to compare.</p>';
-        return;
+    let left, right;
+    let leftLabel = `Entry ${leftIndex + 1}`;
+    let rightLabel;
+
+    left = currentLogs[leftIndex];
+
+    if (rightValue === 'file') {
+        // Get text from textarea or file
+        const textInput = document.getElementById('compare-text-input').value.trim();
+        const fileInput = document.getElementById('compare-file');
+
+        if (textInput) {
+            try {
+                right = JSON.parse(textInput);
+                rightLabel = 'Pasted Text';
+            } catch (e) {
+                document.getElementById('comparison-result').innerHTML =
+                    '<p style="text-align: center; color: var(--error-color); padding: 40px;">Invalid JSON in pasted text.</p>';
+                return;
+            }
+        } else if (fileInput.files.length > 0) {
+            try {
+                const fileContent = await readFileAsText(fileInput.files[0]);
+                right = JSON.parse(fileContent);
+                rightLabel = fileInput.files[0].name;
+            } catch (e) {
+                document.getElementById('comparison-result').innerHTML =
+                    '<p style="text-align: center; color: var(--error-color); padding: 40px;">Invalid JSON in uploaded file.</p>';
+                return;
+            }
+        } else {
+            document.getElementById('comparison-result').innerHTML =
+                '<p style="text-align: center; color: var(--warning-color); padding: 40px;">Please paste text or upload a file to compare.</p>';
+            return;
+        }
+    } else {
+        const rightIndex = Number.parseInt(rightValue);
+        if (leftIndex === rightIndex) {
+            document.getElementById('comparison-result').innerHTML =
+                '<p style="text-align: center; color: var(--warning-color); padding: 40px;">Please select two different entries to compare.</p>';
+            return;
+        }
+        right = currentLogs[rightIndex];
+        rightLabel = `Entry ${rightIndex + 1}`;
     }
-
-    const left = currentLogs[leftIndex];
-    const right = currentLogs[rightIndex];
 
     const leftJson = JSON.stringify(left, null, 2);
     const rightJson = JSON.stringify(right, null, 2);
@@ -2527,15 +2593,44 @@ function performComparison() {
     document.getElementById('comparison-result').innerHTML = `
         <div class="comparison-grid">
             <div class="comparison-panel">
-                <div class="comparison-panel-header">Entry ${leftIndex + 1} (Original)</div>
+                <div class="comparison-panel-header">${leftLabel} (Original)</div>
                 <div class="comparison-panel-content">${diff.left}</div>
             </div>
             <div class="comparison-panel">
-                <div class="comparison-panel-header">Entry ${rightIndex + 1} (Compare with)</div>
+                <div class="comparison-panel-header">${rightLabel} (Compare with)</div>
                 <div class="comparison-panel-content">${diff.right}</div>
             </div>
         </div>
     `;
+}
+
+function handleCompareSelectChange() {
+    const rightValue = document.getElementById('compare-right').value;
+    const fileInputDiv = document.getElementById('compare-file-input');
+
+    if (rightValue === 'file') {
+        fileInputDiv.style.display = 'block';
+    } else {
+        fileInputDiv.style.display = 'none';
+    }
+}
+
+function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = (e) => reject(e);
+        reader.readAsText(file);
+    });
+}
+
+function handleCompareFile(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const fileNameSpan = document.getElementById('compare-file-name');
+        fileNameSpan.textContent = `Selected: ${file.name}`;
+        document.getElementById('compare-text-input').value = '';
+    }
 }
 
 function computeDiff(left, right) {
