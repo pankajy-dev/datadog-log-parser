@@ -1317,8 +1317,8 @@ Received event id:&quot;123&quot; type:&quot;test&quot; data:{field:&quot;value&
             </div>
             <div id="compare-file-input" style="display: none; padding: 20px; border-bottom: 1px solid var(--border-color); background: var(--bg-secondary);">
                 <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); font-size: 0.9rem;">Paste Log or Upload File:</label>
-                    <textarea id="compare-text-input" placeholder="Paste log text here..." style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--border-radius); background: var(--bg-primary); color: var(--text-primary); font-family: monospace; font-size: 0.85rem; resize: vertical;"></textarea>
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); font-size: 0.9rem;">Paste Text or Upload File:</label>
+                    <textarea id="compare-text-input" placeholder="Paste any text here (JSON or plain text)..." style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--border-radius); background: var(--bg-primary); color: var(--text-primary); font-family: monospace; font-size: 0.85rem; resize: vertical;"></textarea>
                 </div>
                 <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
                     <input type="file" id="compare-file" accept=".json,.txt,.log" style="display: none;" onchange="handleCompareFile(event)">
@@ -2562,6 +2562,7 @@ async function performComparison() {
     let left, right;
     let leftLabel = `Entry ${leftIndex + 1}`;
     let rightLabel;
+    let rightIsRawText = false;
 
     left = currentLogs[leftIndex];
 
@@ -2585,20 +2586,28 @@ async function performComparison() {
         } else if (textInput) {
             try {
                 right = JSON.parse(textInput);
-                rightLabel = 'Pasted Text';
+                rightLabel = 'Pasted Text (JSON)';
             } catch (e) {
-                document.getElementById('comparison-result').innerHTML =
-                    '<p style="text-align: center; color: var(--error-color); padding: 40px;">Invalid JSON in pasted text.</p>';
-                return;
+                // Not JSON, treat as plain text
+                right = textInput;
+                rightLabel = 'Pasted Text';
+                rightIsRawText = true;
             }
         } else if (fileInput.files.length > 0) {
             try {
                 const fileContent = await readFileAsText(fileInput.files[0]);
-                right = JSON.parse(fileContent);
-                rightLabel = fileInput.files[0].name;
+                try {
+                    right = JSON.parse(fileContent);
+                    rightLabel = `${fileInput.files[0].name} (JSON)`;
+                } catch (e) {
+                    // Not JSON, treat as plain text
+                    right = fileContent;
+                    rightLabel = fileInput.files[0].name;
+                    rightIsRawText = true;
+                }
             } catch (e) {
                 document.getElementById('comparison-result').innerHTML =
-                    '<p style="text-align: center; color: var(--error-color); padding: 40px;">Invalid JSON in uploaded file.</p>';
+                    '<p style="text-align: center; color: var(--error-color); padding: 40px;">Error reading file.</p>';
                 return;
             }
         } else {
@@ -2618,7 +2627,7 @@ async function performComparison() {
     }
 
     const leftJson = JSON.stringify(left, null, 2);
-    const rightJson = JSON.stringify(right, null, 2);
+    const rightJson = rightIsRawText ? right : JSON.stringify(right, null, 2);
 
     const diff = computeDiff(leftJson, rightJson);
 
