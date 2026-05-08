@@ -1316,14 +1316,20 @@ Received event id:&quot;123&quot; type:&quot;test&quot; data:{field:&quot;value&
                 <button class="btn-primary" onclick="performComparison()">Compare</button>
             </div>
             <div id="compare-file-input" style="display: none; padding: 20px; border-bottom: 1px solid var(--border-color); background: var(--bg-secondary);">
-                <div style="margin-bottom: 10px;">
+                <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); font-size: 0.9rem;">Paste Log or Upload File:</label>
                     <textarea id="compare-text-input" placeholder="Paste log text here..." style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--border-radius); background: var(--bg-primary); color: var(--text-primary); font-family: monospace; font-size: 0.85rem; resize: vertical;"></textarea>
                 </div>
-                <div>
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
                     <input type="file" id="compare-file" accept=".json,.txt,.log" style="display: none;" onchange="handleCompareFile(event)">
                     <button class="btn-secondary" onclick="document.getElementById('compare-file').click()">📁 Choose File</button>
-                    <span id="compare-file-name" style="margin-left: 10px; color: var(--text-secondary); font-size: 0.9rem;"></span>
+                    <span id="compare-file-name" style="color: var(--text-secondary); font-size: 0.9rem;"></span>
+                </div>
+                <div style="border-top: 1px solid var(--border-color); padding-top: 15px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); font-size: 0.9rem;">Or Select from History:</label>
+                    <select id="compare-history-select" class="compare-select" onchange="handleHistorySelect(event)">
+                        <option value="">-- Select from history --</option>
+                    </select>
                 </div>
             </div>
             <div id="comparison-result" class="comparison-result"></div>
@@ -2488,6 +2494,7 @@ function openComparison() {
     const modal = document.getElementById('comparison-modal');
     const leftSelect = document.getElementById('compare-left');
     const rightSelect = document.getElementById('compare-right');
+    const historySelect = document.getElementById('compare-history-select');
 
     // Populate selects with log entries
     leftSelect.innerHTML = '';
@@ -2509,8 +2516,20 @@ function openComparison() {
     // Add file/paste option to right select
     const fileOption = document.createElement('option');
     fileOption.value = 'file';
-    fileOption.textContent = '📁 Upload File / Paste Text';
+    fileOption.textContent = '📁 Upload File / Paste Text / History';
     rightSelect.appendChild(fileOption);
+
+    // Populate history dropdown
+    historySelect.innerHTML = '<option value="">-- Select from history --</option>';
+    const historyEntries = HistoryManager.getHistory();
+    historyEntries.forEach((entry) => {
+        const option = document.createElement('option');
+        option.value = entry.id;
+        const date = new Date(entry.timestamp).toLocaleString();
+        const star = entry.starred ? '⭐ ' : '';
+        option.textContent = `${star}${entry.sourceName} - ${entry.entryCount} log${entry.entryCount !== 1 ? 's' : ''} (${date})`;
+        historySelect.appendChild(option);
+    });
 
     // Set right select to second entry if available, otherwise to file option
     if (currentLogs.length > 1) {
@@ -2532,6 +2551,7 @@ function closeComparison() {
     document.getElementById('compare-text-input').value = '';
     document.getElementById('compare-file').value = '';
     document.getElementById('compare-file-name').textContent = '';
+    document.getElementById('compare-history-select').selectedIndex = 0;
     document.getElementById('compare-file-input').style.display = 'none';
 }
 
@@ -2546,11 +2566,23 @@ async function performComparison() {
     left = currentLogs[leftIndex];
 
     if (rightValue === 'file') {
-        // Get text from textarea or file
+        // Get text from textarea, file, or history
         const textInput = document.getElementById('compare-text-input').value.trim();
         const fileInput = document.getElementById('compare-file');
+        const historySelect = document.getElementById('compare-history-select');
+        const historyId = historySelect.value;
 
-        if (textInput) {
+        if (historyId) {
+            const historyEntry = HistoryManager.getEntry(historyId);
+            if (historyEntry && historyEntry.logs && historyEntry.logs.length > 0) {
+                right = historyEntry.logs[0];
+                rightLabel = `History: ${historyEntry.sourceName}`;
+            } else {
+                document.getElementById('comparison-result').innerHTML =
+                    '<p style="text-align: center; color: var(--error-color); padding: 40px;">History entry not found or empty.</p>';
+                return;
+            }
+        } else if (textInput) {
             try {
                 right = JSON.parse(textInput);
                 rightLabel = 'Pasted Text';
@@ -2571,7 +2603,7 @@ async function performComparison() {
             }
         } else {
             document.getElementById('comparison-result').innerHTML =
-                '<p style="text-align: center; color: var(--warning-color); padding: 40px;">Please paste text or upload a file to compare.</p>';
+                '<p style="text-align: center; color: var(--warning-color); padding: 40px;">Please paste text, upload a file, or select from history to compare.</p>';
             return;
         }
     } else {
@@ -2630,6 +2662,16 @@ function handleCompareFile(event) {
         const fileNameSpan = document.getElementById('compare-file-name');
         fileNameSpan.textContent = `Selected: ${file.name}`;
         document.getElementById('compare-text-input').value = '';
+        document.getElementById('compare-history-select').selectedIndex = 0;
+    }
+}
+
+function handleHistorySelect(event) {
+    const historyId = event.target.value;
+    if (historyId) {
+        document.getElementById('compare-text-input').value = '';
+        document.getElementById('compare-file').value = '';
+        document.getElementById('compare-file-name').textContent = '';
     }
 }
 
