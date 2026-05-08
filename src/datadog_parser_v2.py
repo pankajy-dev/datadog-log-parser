@@ -305,15 +305,38 @@ def parse_datadog_logs(log_text: str, decode_base64: bool = True, redact: bool =
                 json_data = [json_data]
 
             # Process JSON data with decode_base64 and redact if needed
+            processed_data = []
             for item in json_data:
                 if decode_base64:
                     item = decode_base64_fields(item)
                 if redact:
                     item = redact_sensitive_fields(item, keep_chars=keep_chars)
+                processed_data.append(item)
 
-            return json_data if isinstance(json_data, list) else [json_data]
+            return processed_data
         except json.JSONDecodeError:
             # Not valid JSON, continue with protobuf parsing
+            pass
+
+    # Check for "Label: {json}" format (e.g., "WorkflowRunEvent: {...}")
+    label_json_match = re.match(r'^([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*(\{.+\})\s*$', stripped_text, re.DOTALL)
+    if label_json_match:
+        try:
+            label = label_json_match.group(1)
+            json_part = label_json_match.group(2)
+            parsed = json.loads(json_part)
+
+            # Wrap in a dict with the label as key
+            result = {label: parsed}
+
+            if decode_base64:
+                result = decode_base64_fields(result)
+            if redact:
+                result = redact_sensitive_fields(result, keep_chars=keep_chars)
+
+            return [result]
+        except json.JSONDecodeError:
+            # Not valid JSON after the label, continue with protobuf parsing
             pass
 
     entries = split_log_entries(log_text)

@@ -516,6 +516,8 @@ input[type="range"] {
     line-height: 1.5;
     white-space: pre-wrap;
     word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-all;
     color: var(--text-primary);
 }
 
@@ -1557,6 +1559,30 @@ function parseDatadogLogs(logText, decodeBase64 = true, redact = false, keepChar
             });
         } catch (e) {
             // Not JSON, continue
+        }
+    }
+
+    // Check for "Label: {json}" format (e.g., "WorkflowRunEvent: {...}")
+    const labelJsonMatch = stripped.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*(\{.+\})\s*$/s);
+    if (labelJsonMatch) {
+        try {
+            const label = labelJsonMatch[1];
+            const jsonPart = labelJsonMatch[2];
+            let parsed = JSON.parse(jsonPart);
+
+            // Wrap in a dict with the label as key
+            let result = { [label]: parsed };
+
+            if (decodeBase64) {
+                result = decodeBase64Fields(result);
+            }
+            if (redact) {
+                result = redactSensitiveFields(result, null, keepChars);
+            }
+
+            return [result];
+        } catch (e) {
+            // Not valid JSON after the label, continue with protobuf parsing
         }
     }
 
