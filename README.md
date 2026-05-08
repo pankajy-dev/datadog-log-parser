@@ -18,6 +18,10 @@ open standalone/log-parser.html
 
 Then **bookmark it** in your browser for instant access!
 
+> **💡 Important:** After any code updates, always hard refresh your browser to see the latest changes:
+> - **Mac:** `Cmd + Shift + R`
+> - **Windows/Linux:** `Ctrl + F5` or `Ctrl + Shift + R`
+
 **Features:**
 - ✅ Parse Datadog Protocol Buffer logs
 - ✅ Extract logs from CSV files
