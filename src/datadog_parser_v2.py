@@ -182,7 +182,8 @@ def redact_sensitive_value(value: str, keep_chars: int = 4) -> str:
     return f"{value[:keep_chars]}...{value[-keep_chars:]}"
 
 
-def redact_sensitive_fields(data: Any, keys_to_redact: List[str] = None, keep_chars: int = 4) -> Any:
+def redact_sensitive_fields(data: Any, keys_to_redact: List[str] = None, keep_chars: int = 4,
+                           exact_match: bool = False) -> Any:
     """
     Recursively redact sensitive fields in the dictionary
 
@@ -190,6 +191,7 @@ def redact_sensitive_fields(data: Any, keys_to_redact: List[str] = None, keep_ch
         data: Data structure to process
         keys_to_redact: List of keys whose values should be redacted
         keep_chars: Number of characters to keep at start and end
+        exact_match: If True, use exact key matching. If False, use substring matching
 
     Returns:
         Data with sensitive fields redacted
@@ -201,20 +203,23 @@ def redact_sensitive_fields(data: Any, keys_to_redact: List[str] = None, keep_ch
     if isinstance(data, dict):
         result = {}
         for key, value in data.items():
-            # Check if key name suggests sensitive data (case-insensitive)
-            key_lower = key.lower()
-            should_redact = any(sensitive in key_lower for sensitive in keys_to_redact)
+            # Check if key should be redacted
+            if exact_match:
+                should_redact = key in keys_to_redact
+            else:
+                # Check if key name suggests sensitive data (case-insensitive substring match)
+                key_lower = key.lower()
+                should_redact = any(sensitive.lower() in key_lower for sensitive in keys_to_redact)
 
             if should_redact and isinstance(value, str):
                 result[key] = redact_sensitive_value(value, keep_chars)
-                result[f"{key}_redacted"] = True
             elif isinstance(value, (dict, list)):
-                result[key] = redact_sensitive_fields(value, keys_to_redact, keep_chars)
+                result[key] = redact_sensitive_fields(value, keys_to_redact, keep_chars, exact_match)
             else:
                 result[key] = value
         return result
     elif isinstance(data, list):
-        return [redact_sensitive_fields(item, keys_to_redact, keep_chars) for item in data]
+        return [redact_sensitive_fields(item, keys_to_redact, keep_chars, exact_match) for item in data]
     return data
 
 
@@ -283,7 +288,7 @@ def split_log_entries(log_text: str) -> List[str]:
 
 
 def parse_datadog_logs(log_text: str, decode_base64: bool = True, redact: bool = False,
-                       keep_chars: int = 4) -> List[Dict[str, Any]]:
+                       keep_chars: int = 4, redact_fields: List[str] = None) -> List[Dict[str, Any]]:
     """
     Parse Datadog logs and return list of JSON objects
 
@@ -292,6 +297,7 @@ def parse_datadog_logs(log_text: str, decode_base64: bool = True, redact: bool =
         decode_base64: Whether to decode base64 encoded fields (default: True)
         redact: Whether to redact sensitive fields (default: False)
         keep_chars: Number of characters to keep at start/end when redacting (default: 4)
+        redact_fields: Custom list of field names to redact (if provided, uses exact matching)
 
     Returns:
         List of parsed JSON objects
@@ -310,7 +316,11 @@ def parse_datadog_logs(log_text: str, decode_base64: bool = True, redact: bool =
                 if decode_base64:
                     item = decode_base64_fields(item)
                 if redact:
-                    item = redact_sensitive_fields(item, keep_chars=keep_chars)
+                    if redact_fields:
+                        item = redact_sensitive_fields(item, keys_to_redact=redact_fields,
+                                                      keep_chars=keep_chars, exact_match=True)
+                    else:
+                        item = redact_sensitive_fields(item, keep_chars=keep_chars)
                 processed_data.append(item)
 
             return processed_data
@@ -332,7 +342,11 @@ def parse_datadog_logs(log_text: str, decode_base64: bool = True, redact: bool =
             if decode_base64:
                 result = decode_base64_fields(result)
             if redact:
-                result = redact_sensitive_fields(result, keep_chars=keep_chars)
+                if redact_fields:
+                    result = redact_sensitive_fields(result, keys_to_redact=redact_fields,
+                                                    keep_chars=keep_chars, exact_match=True)
+                else:
+                    result = redact_sensitive_fields(result, keep_chars=keep_chars)
 
             return [result]
         except json.JSONDecodeError:
@@ -353,7 +367,11 @@ def parse_datadog_logs(log_text: str, decode_base64: bool = True, redact: bool =
                     if decode_base64:
                         parsed = decode_base64_fields(parsed)
                     if redact:
-                        parsed = redact_sensitive_fields(parsed, keep_chars=keep_chars)
+                        if redact_fields:
+                            parsed = redact_sensitive_fields(parsed, keys_to_redact=redact_fields,
+                                                            keep_chars=keep_chars, exact_match=True)
+                        else:
+                            parsed = redact_sensitive_fields(parsed, keep_chars=keep_chars)
 
                     results.append(parsed)
                     continue
@@ -371,7 +389,11 @@ def parse_datadog_logs(log_text: str, decode_base64: bool = True, redact: bool =
                 if decode_base64:
                     parsed = decode_base64_fields(parsed)
                 if redact:
-                    parsed = redact_sensitive_fields(parsed, keep_chars=keep_chars)
+                    if redact_fields:
+                        parsed = redact_sensitive_fields(parsed, keys_to_redact=redact_fields,
+                                                        keep_chars=keep_chars, exact_match=True)
+                    else:
+                        parsed = redact_sensitive_fields(parsed, keep_chars=keep_chars)
 
             results.append(parsed)
         except Exception as e:

@@ -247,6 +247,12 @@ body {
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+.form-group input[type="text"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--bg-secondary);
+}
+
 /* Textarea */
 textarea {
     width: 100%;
@@ -280,6 +286,30 @@ textarea:focus {
     background: var(--bg-secondary);
     border-radius: var(--border-radius);
     border: 1px solid var(--border-color);
+}
+
+.option-item input[type="text"] {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 0.9rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    margin-top: 8px;
+    transition: var(--transition);
+}
+
+.option-item input[type="text"]:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(59, 154, 238, 0.1);
+}
+
+.option-item input[type="text"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--bg-secondary);
 }
 
 .left-panel .section {
@@ -416,6 +446,11 @@ input[type="range"] {
     background: var(--border-color);
     outline: none;
     accent-color: var(--primary-color);
+}
+
+input[type="range"]:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 #keep-chars-value {

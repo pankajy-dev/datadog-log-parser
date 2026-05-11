@@ -198,9 +198,11 @@ function initializeEventListeners() {
         }
     });
 
-    // Redact checkbox - enable/disable keep-chars slider
+    // Redact checkbox - enable/disable keep-chars slider and redact-fields input
     document.getElementById('redact').addEventListener('change', function() {
-        document.getElementById('keep-chars').disabled = !this.checked;
+        const redactEnabled = this.checked;
+        document.getElementById('keep-chars').disabled = !redactEnabled;
+        document.getElementById('redact-fields').disabled = !redactEnabled;
     });
 }
 
@@ -377,6 +379,7 @@ async function parseLog() {
                 decode_base64: document.getElementById('decode-base64').checked,
                 redact: document.getElementById('redact').checked,
                 keep_chars: parseInt(document.getElementById('keep-chars').value),
+                redact_fields: document.getElementById('redact-fields').value,
                 include_metadata: currentTab === 'csv' ? document.getElementById('include-metadata').checked : false,
                 content_column: currentTab === 'csv' ? document.getElementById('content-column').value : null
             };
@@ -403,6 +406,7 @@ async function parseCSV() {
     formData.append('decode_base64', document.getElementById('decode-base64').checked);
     formData.append('redact', document.getElementById('redact').checked);
     formData.append('keep_chars', document.getElementById('keep-chars').value);
+    formData.append('redact_fields', document.getElementById('redact-fields').value);
 
     const response = await fetch('/api/parse-csv', {
         method: 'POST',
@@ -415,6 +419,7 @@ async function parseCSV() {
 // Parse Text
 async function parseText() {
     const text = document.getElementById('text-input').value;
+    const redactFields = document.getElementById('redact-fields').value;
 
     const response = await fetch('/api/parse-text', {
         method: 'POST',
@@ -425,7 +430,8 @@ async function parseText() {
             text: text,
             decode_base64: document.getElementById('decode-base64').checked,
             redact: document.getElementById('redact').checked,
-            keep_chars: parseInt(document.getElementById('keep-chars').value)
+            keep_chars: parseInt(document.getElementById('keep-chars').value),
+            redact_fields: redactFields
         })
     });
 

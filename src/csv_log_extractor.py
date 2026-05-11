@@ -22,7 +22,8 @@ def extract_logs_from_csv(
     decode_base64: bool = True,
     redact: bool = False,
     keep_chars: int = 4,
-    auto_detect: bool = True
+    auto_detect: bool = True,
+    redact_fields: List[str] = None
 ) -> List[Dict[str, Any]]:
     """
     Extract and parse logs from CSV file
@@ -35,6 +36,7 @@ def extract_logs_from_csv(
         redact: Redact sensitive fields
         keep_chars: Characters to keep when redacting
         auto_detect: Auto-detect log format (Datadog protobuf, JSON, etc.)
+        redact_fields: Custom list of field names to redact
 
     Returns:
         List of parsed log entries with optional metadata
@@ -63,7 +65,8 @@ def extract_logs_from_csv(
                 decode_base64=decode_base64,
                 redact=redact,
                 keep_chars=keep_chars,
-                auto_detect=auto_detect
+                auto_detect=auto_detect,
+                redact_fields=redact_fields
             )
 
             # Build result entry
@@ -86,7 +89,8 @@ def parse_log_content(
     decode_base64: bool = True,
     redact: bool = False,
     keep_chars: int = 4,
-    auto_detect: bool = True
+    auto_detect: bool = True,
+    redact_fields: List[str] = None
 ) -> Any:
     """
     Parse log content based on detected format
@@ -97,6 +101,7 @@ def parse_log_content(
         redact: Redact sensitive fields
         keep_chars: Characters to keep when redacting
         auto_detect: Auto-detect format
+        redact_fields: Custom list of field names to redact
 
     Returns:
         Parsed log data (dict or string)
@@ -113,7 +118,8 @@ def parse_log_content(
                     content,
                     decode_base64=decode_base64,
                     redact=redact,
-                    keep_chars=keep_chars
+                    keep_chars=keep_chars,
+                    redact_fields=redact_fields
                 )
                 # Return first parsed log if only one, otherwise return list
                 return parsed_logs[0] if len(parsed_logs) == 1 else parsed_logs

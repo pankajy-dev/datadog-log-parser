@@ -67,12 +67,21 @@ python3 src/csv_log_extractor.py -f logs.csv --redact -o output/
 ```python
 from src.datadog_parser_v2 import parse_datadog_logs
 
-# Parse logs
+# Parse logs with default redaction
 logs = parse_datadog_logs(
     log_text,
     decode_base64=True,
     redact=True,
     keep_chars=4
+)
+
+# Parse logs with custom field redaction
+logs = parse_datadog_logs(
+    log_text,
+    decode_base64=True,
+    redact=True,
+    keep_chars=4,
+    redact_fields=["raw_event_payload", "secret_data"]
 )
 
 # Access parsed data
@@ -153,6 +162,7 @@ datadog-log-parser/
 - **JSON support** - Parse JSON logs directly
 - **Base64 decoding** - Automatically decode encoded fields
 - **Smart redaction** - Hide sensitive data (keys, tokens, passwords)
+- **Custom field redaction** - Specify exact fields to redact (e.g., raw_event_payload)
 - **Multiple output formats** - Pretty, compact, or array JSON
 
 ### UI Features

@@ -48,7 +48,8 @@ def parse_text():
         "text": "log content",
         "decode_base64": true,
         "redact": false,
-        "keep_chars": 4
+        "keep_chars": 4,
+        "redact_fields": ["field1", "field2"]
     }
     """
     try:
@@ -61,13 +62,21 @@ def parse_text():
         decode_base64 = data.get('decode_base64', True)
         redact = data.get('redact', False)
         keep_chars = int(data.get('keep_chars', 4))
+        redact_fields = data.get('redact_fields', None)
+
+        # Parse redact_fields if it's a comma-separated string
+        if redact_fields and isinstance(redact_fields, str):
+            redact_fields = [f.strip() for f in redact_fields.split(',') if f.strip()]
+        elif redact_fields and not isinstance(redact_fields, list):
+            redact_fields = None
 
         # Parse logs
         logs = parse_datadog_logs(
             text,
             decode_base64=decode_base64,
             redact=redact,
-            keep_chars=keep_chars
+            keep_chars=keep_chars,
+            redact_fields=redact_fields if redact_fields else None
         )
 
         return jsonify({
@@ -115,6 +124,12 @@ def parse_csv():
         decode_base64 = request.form.get('decode_base64', 'true').lower() == 'true'
         redact = request.form.get('redact', 'false').lower() == 'true'
         keep_chars = int(request.form.get('keep_chars', 4))
+        redact_fields_str = request.form.get('redact_fields', '')
+
+        # Parse redact_fields
+        redact_fields = None
+        if redact_fields_str:
+            redact_fields = [f.strip() for f in redact_fields_str.split(',') if f.strip()]
 
         # Save file temporarily
         filename = secure_filename(file.filename)
@@ -132,7 +147,8 @@ def parse_csv():
                 include_metadata=include_metadata,
                 decode_base64=decode_base64,
                 redact=redact,
-                keep_chars=keep_chars
+                keep_chars=keep_chars,
+                redact_fields=redact_fields if redact_fields else None
             )
 
             return jsonify({

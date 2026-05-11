@@ -302,6 +302,30 @@ textarea:focus {
     border: 1px solid var(--border-color);
 }
 
+.option-item input[type="text"] {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 0.9rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    margin-top: 8px;
+    transition: var(--transition);
+}
+
+.option-item input[type="text"]:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(59, 154, 238, 0.1);
+}
+
+.option-item input[type="text"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--bg-secondary);
+}
+
 .checkbox-label {
     display: flex;
     align-items: center;
@@ -325,6 +349,45 @@ textarea:focus {
     line-height: 1.3;
 }
 
+.field-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+    opacity: 0.5;
+    pointer-events: none;
+    transition: var(--transition);
+}
+
+.field-chips.enabled {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.field-chip {
+    display: inline-block;
+    padding: 4px 10px;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: var(--transition);
+    user-select: none;
+}
+
+.field-chip:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+.field-chip:active {
+    transform: translateY(0);
+}
+
 .slider-container {
     display: flex;
     align-items: center;
@@ -339,6 +402,11 @@ input[type="range"] {
     background: var(--border-color);
     outline: none;
     accent-color: var(--primary-color);
+}
+
+input[type="range"]:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 #keep-chars-value {
@@ -1192,6 +1260,19 @@ Received event id:&quot;123&quot; type:&quot;test&quot; data:{field:&quot;value&
                     </div>
 
                     <div class="option-item">
+                        <label for="redact-fields">Custom Redaction Fields:</label>
+                        <input type="text" id="redact-fields" placeholder="e.g., raw_event_payload, secret_data" disabled>
+                        <div class="field-chips" id="field-chips">
+                            <span class="field-chip" onclick="addFieldToRedact('raw_event_payload')">raw_event_payload</span>
+                            <span class="field-chip" onclick="addFieldToRedact('secret_data')">secret_data</span>
+                            <span class="field-chip" onclick="addFieldToRedact('private_key')">private_key</span>
+                            <span class="field-chip" onclick="addFieldToRedact('access_token')">access_token</span>
+                            <span class="field-chip" onclick="addFieldToRedact('api_key')">api_key</span>
+                        </div>
+                        <p class="option-description">Click chips to add fields, or type custom field names (comma-separated)</p>
+                    </div>
+
+                    <div class="option-item">
                         <label class="checkbox-label">
                             <input type="checkbox" id="include-metadata" checked>
                             <span>Include Metadata</span>
@@ -1202,7 +1283,7 @@ Received event id:&quot;123&quot; type:&quot;test&quot; data:{field:&quot;value&
                     <div class="option-item">
                         <label for="keep-chars">Keep Characters:</label>
                         <div class="slider-container">
-                            <input type="range" id="keep-chars" min="2" max="10" value="4">
+                            <input type="range" id="keep-chars" min="2" max="10" value="4" disabled>
                             <span id="keep-chars-value">4</span>
                         </div>
                         <p class="option-description">Number of chars to keep when redacting</p>
@@ -1645,7 +1726,7 @@ function redactSensitiveValue(value, keepChars = 4) {
     return `${value.substring(0, keepChars)}...${value.substring(value.length - keepChars)}`;
 }
 
-function redactSensitiveFields(data, keysToRedact = null, keepChars = 4) {
+function redactSensitiveFields(data, keysToRedact = null, keepChars = 4, exactMatch = false) {
     if (keysToRedact === null) {
         keysToRedact = ['public_key', 'private_key', 'secret', 'token', 'api_key',
                        'password', 'credential', 'auth', 'authorization'];
@@ -1654,21 +1735,25 @@ function redactSensitiveFields(data, keysToRedact = null, keepChars = 4) {
     if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
         const result = {};
         for (const [key, value] of Object.entries(data)) {
-            const keyLower = key.toLowerCase();
-            const shouldRedact = keysToRedact.some(sensitive => keyLower.includes(sensitive));
+            let shouldRedact;
+            if (exactMatch) {
+                shouldRedact = keysToRedact.includes(key);
+            } else {
+                const keyLower = key.toLowerCase();
+                shouldRedact = keysToRedact.some(sensitive => keyLower.includes(sensitive.toLowerCase()));
+            }
 
             if (shouldRedact && typeof value === 'string') {
                 result[key] = redactSensitiveValue(value, keepChars);
-                result[`${key}_redacted`] = true;
             } else if (typeof value === 'object') {
-                result[key] = redactSensitiveFields(value, keysToRedact, keepChars);
+                result[key] = redactSensitiveFields(value, keysToRedact, keepChars, exactMatch);
             } else {
                 result[key] = value;
             }
         }
         return result;
     } else if (Array.isArray(data)) {
-        return data.map(item => redactSensitiveFields(item, keysToRedact, keepChars));
+        return data.map(item => redactSensitiveFields(item, keysToRedact, keepChars, exactMatch));
     }
     return data;
 }
@@ -1721,8 +1806,16 @@ function splitLogEntries(logText) {
     return entries;
 }
 
-function parseDatadogLogs(logText, decodeBase64 = true, redact = false, keepChars = 4) {
+function parseDatadogLogs(logText, decodeBase64 = true, redact = false, keepChars = 4, redactFields = null) {
     const stripped = logText.trim();
+
+    // Parse custom redact fields
+    let customFields = null;
+    let exactMatch = false;
+    if (redactFields && typeof redactFields === 'string' && redactFields.trim()) {
+        customFields = redactFields.split(',').map(f => f.trim()).filter(f => f);
+        exactMatch = true;
+    }
 
     // Try JSON parsing first
     if (stripped.startsWith('{') || stripped.startsWith('[')) {
@@ -1737,7 +1830,7 @@ function parseDatadogLogs(logText, decodeBase64 = true, redact = false, keepChar
                     item = decodeBase64Fields(item);
                 }
                 if (redact) {
-                    item = redactSensitiveFields(item, null, keepChars);
+                    item = redactSensitiveFields(item, customFields, keepChars, exactMatch);
                 }
                 return item;
             });
@@ -1761,7 +1854,7 @@ function parseDatadogLogs(logText, decodeBase64 = true, redact = false, keepChar
                 result = decodeBase64Fields(result);
             }
             if (redact) {
-                result = redactSensitiveFields(result, null, keepChars);
+                result = redactSensitiveFields(result, customFields, keepChars, exactMatch);
             }
 
             return [result];
@@ -1783,7 +1876,7 @@ function parseDatadogLogs(logText, decodeBase64 = true, redact = false, keepChar
                         parsed = decodeBase64Fields(parsed);
                     }
                     if (redact) {
-                        parsed = redactSensitiveFields(parsed, null, keepChars);
+                        parsed = redactSensitiveFields(parsed, customFields, keepChars, exactMatch);
                     }
                     results.push(parsed);
                     continue;
@@ -1803,7 +1896,7 @@ function parseDatadogLogs(logText, decodeBase64 = true, redact = false, keepChar
                     parsed = decodeBase64Fields(parsed);
                 }
                 if (redact) {
-                    parsed = redactSensitiveFields(parsed, null, keepChars);
+                    parsed = redactSensitiveFields(parsed, customFields, keepChars, exactMatch);
                 }
             }
 
@@ -1862,7 +1955,7 @@ function parseCSV(text) {
     return { headers, rows };
 }
 
-function extractLogsFromCSV(csvText, contentColumn, includeMetadata, decodeBase64, redact, keepChars) {
+function extractLogsFromCSV(csvText, contentColumn, includeMetadata, decodeBase64, redact, keepChars, redactFields = null) {
     const { headers, rows } = parseCSV(csvText);
 
     if (!headers.includes(contentColumn)) {
@@ -1874,7 +1967,7 @@ function extractLogsFromCSV(csvText, contentColumn, includeMetadata, decodeBase6
         const content = (row[contentColumn] || '').trim();
         if (!content) continue;
 
-        let parsedContent = parseDatadogLogs(content, decodeBase64, redact, keepChars);
+        let parsedContent = parseDatadogLogs(content, decodeBase64, redact, keepChars, redactFields);
         if (parsedContent.length === 1) {
             parsedContent = parsedContent[0];
         }
@@ -1920,8 +2013,46 @@ function initializeEventListeners() {
     });
 
     document.getElementById('redact').addEventListener('change', function() {
-        document.getElementById('keep-chars').disabled = !this.checked;
+        const redactEnabled = this.checked;
+        document.getElementById('keep-chars').disabled = !redactEnabled;
+        document.getElementById('redact-fields').disabled = !redactEnabled;
+
+        const fieldChips = document.getElementById('field-chips');
+        if (redactEnabled) {
+            fieldChips.classList.add('enabled');
+        } else {
+            fieldChips.classList.remove('enabled');
+        }
     });
+}
+
+function addFieldToRedact(fieldName) {
+    const input = document.getElementById('redact-fields');
+    const currentValue = input.value.trim();
+
+    // Check if field already exists
+    const fields = currentValue ? currentValue.split(',').map(f => f.trim()) : [];
+    if (fields.includes(fieldName)) {
+        return; // Already added
+    }
+
+    // Add the field
+    if (currentValue) {
+        input.value = currentValue + ', ' + fieldName;
+    } else {
+        input.value = fieldName;
+    }
+
+    // Visual feedback
+    const chip = event.target;
+    chip.style.background = 'var(--success-color)';
+    chip.style.borderColor = 'var(--success-color)';
+    chip.style.color = 'white';
+    setTimeout(() => {
+        chip.style.background = '';
+        chip.style.borderColor = '';
+        chip.style.color = '';
+    }, 300);
 }
 
 function initializeDragAndDrop() {
@@ -2066,8 +2197,9 @@ async function parseLog() {
                         const decodeBase64 = document.getElementById('decode-base64').checked;
                         const redact = document.getElementById('redact').checked;
                         const keepChars = parseInt(document.getElementById('keep-chars').value);
+                        const redactFields = document.getElementById('redact-fields').value;
 
-                        logs = extractLogsFromCSV(csvText, contentColumn, includeMetadata, decodeBase64, redact, keepChars);
+                        logs = extractLogsFromCSV(csvText, contentColumn, includeMetadata, decodeBase64, redact, keepChars, redactFields);
                         count = logs.length;
 
                         const { rows } = parseCSV(csvText);
@@ -2086,8 +2218,9 @@ async function parseLog() {
             const decodeBase64 = document.getElementById('decode-base64').checked;
             const redact = document.getElementById('redact').checked;
             const keepChars = parseInt(document.getElementById('keep-chars').value);
+            const redactFields = document.getElementById('redact-fields').value;
 
-            logs = parseDatadogLogs(text, decodeBase64, redact, keepChars);
+            logs = parseDatadogLogs(text, decodeBase64, redact, keepChars, redactFields);
             count = logs.length;
         }
 
@@ -2109,6 +2242,7 @@ async function parseLog() {
             decode_base64: document.getElementById('decode-base64').checked,
             redact: document.getElementById('redact').checked,
             keep_chars: parseInt(document.getElementById('keep-chars').value),
+            redact_fields: document.getElementById('redact-fields').value,
             include_metadata: currentTab === 'csv' ? document.getElementById('include-metadata').checked : false,
             content_column: currentTab === 'csv' ? document.getElementById('content-column').value : null
         };

@@ -100,6 +100,12 @@ Received event id:&quot;123&quot; type:&quot;test&quot; data:{field:&quot;value&
                     </div>
 
                     <div class="option-item">
+                        <label for="redact-fields">Custom Redaction Fields:</label>
+                        <input type="text" id="redact-fields" placeholder="e.g., raw_event_payload, secret_data" disabled>
+                        <p class="option-description">Comma-separated field names to redact (leave empty for defaults)</p>
+                    </div>
+
+                    <div class="option-item">
                         <label class="checkbox-label">
                             <input type="checkbox" id="include-metadata" checked>
                             <span>Include Metadata</span>
@@ -110,7 +116,7 @@ Received event id:&quot;123&quot; type:&quot;test&quot; data:{field:&quot;value&
                     <div class="option-item">
                         <label for="keep-chars">Keep Characters:</label>
                         <div class="slider-container">
-                            <input type="range" id="keep-chars" min="2" max="10" value="4">
+                            <input type="range" id="keep-chars" min="2" max="10" value="4" disabled>
                             <span id="keep-chars-value">4</span>
                         </div>
                         <p class="option-description">Number of chars to keep when redacting</p>
